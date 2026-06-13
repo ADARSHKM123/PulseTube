@@ -1,0 +1,47 @@
+# PulseTube — full stack: PostgreSQL + FastAPI (with scheduler) + React/nginx
+#
+#   1. cp backend/.env.example backend/.env  and set YOUTUBE_API_KEY
+#   2. docker compose up --build
+#   3. open http://localhost:8080
+#
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pulsetube
+      POSTGRES_PASSWORD: pulsetube
+      POSTGRES_DB: pulsetube
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # DDL applied on first init (the app also creates tables idempotently)
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulsetube"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      # Override the .env DB url so the container talks to the db service
+      DATABASE_URL: postgresql+asyncpg://pulsetube:pulsetube@db:5432/pulsetube
+      CORS_ORIGINS: http://localhost:8080
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:

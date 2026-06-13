@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+backend/pulsetube.db
+
+# Secrets
+.env
+backend/.env
+
+# Node
+node_modules/
+frontend/dist/
+*.local
+
+# Editor/OS
+.vscode/
+.DS_Store
+Thumbs.db

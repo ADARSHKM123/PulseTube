@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Light theme — RGB triplets consumed by tailwind.config.js */
+  --c-bg: 245 246 250;
+  --c-surface: 255 255 255;
+  --c-raised: 249 250 253;
+  --c-border: 227 231 240;
+  --c-fg: 17 20 30;
+  --c-muted: 95 104 124;
+  --c-primary: 229 33 70;
+  --c-primary-fg: 255 255 255;
+  --c-accent: 7 144 178;
+  --c-success: 4 150 105;
+  --c-warning: 200 119 6;
+  --c-danger: 217 38 38;
+}
+
+.dark {
+  --c-bg: 10 12 18;
+  --c-surface: 16 19 28;
+  --c-raised: 23 27 39;
+  --c-border: 34 40 56;
+  --c-fg: 233 237 245;
+  --c-muted: 139 148 169;
+  --c-primary: 255 61 94;
+  --c-primary-fg: 255 255 255;
+  --c-accent: 45 212 238;
+  --c-success: 52 211 153;
+  --c-warning: 251 191 36;
+  --c-danger: 248 113 113;
+}
+
+@layer base {
+  html {
+    @apply h-full;
+  }
+  body {
+    @apply h-full bg-bg font-sans text-fg antialiased;
+    font-feature-settings: "ss01";
+  }
+  #root {
+    @apply h-full;
+  }
+  ::selection {
+    @apply bg-primary/30;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface shadow-card;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Slim, theme-aware scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--c-border)) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-border));
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Soft pulse for the "pipeline running" indicator */
+@keyframes pt-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pt-pulse {
+  animation: pt-pulse 1.6s ease-in-out infinite;
+}
