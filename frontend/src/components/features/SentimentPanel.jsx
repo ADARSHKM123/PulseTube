@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ThumbsUp } from "lucide-react";
 import clsx from "clsx";
 import SentimentBar from "../ui/SentimentBar.jsx";
@@ -9,8 +10,18 @@ const LABEL_STYLES = {
   neutral: "bg-muted/12 text-muted border-line",
 };
 
-/** "What people think" — aggregate distribution + the most-liked sample comments. */
+// Order matches the donut sweep; pctKey reads the aggregate distribution.
+const CATEGORIES = [
+  { id: "positive", label: "Positive", color: "var(--c-success)", pctKey: "positive_pct" },
+  { id: "neutral", label: "Neutral", color: "var(--c-muted)", pctKey: "neutral_pct" },
+  { id: "negative", label: "Negative", color: "var(--c-danger)", pctKey: "negative_pct" },
+];
+
+/** "What people think" — aggregate distribution + filterable per-comment list. */
 export default function SentimentPanel({ sentiment }) {
+  // Click a category to show only those comments; click it again for all.
+  const [filter, setFilter] = useState("all");
+
   if (!sentiment || sentiment.comments_analyzed === 0) {
     return (
       <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted">
@@ -19,20 +30,25 @@ export default function SentimentPanel({ sentiment }) {
     );
   }
 
-  const donut = [
-    { label: "Positive", value: sentiment.positive_pct, color: "var(--c-success)" },
-    { label: "Neutral", value: sentiment.neutral_pct, color: "var(--c-muted)" },
-    { label: "Negative", value: sentiment.negative_pct, color: "var(--c-danger)" },
-  ];
-  // Conic gradient donut — no chart lib needed for a single ring.
+  const comments = sentiment.sample_comments || [];
+  // Counts reflect the comments actually stored/shown (so the filter chip
+  // numbers always match the list length below).
+  const counts = { positive: 0, neutral: 0, negative: 0 };
+  comments.forEach((c) => {
+    if (counts[c.label] !== undefined) counts[c.label] += 1;
+  });
+  const filtered = filter === "all" ? comments : comments.filter((c) => c.label === filter);
+
+  // Conic-gradient donut — no chart lib needed for a single ring.
   let acc = 0;
-  const stops = donut
-    .map((d) => {
-      const start = acc;
-      acc += d.value;
-      return `rgb(${d.color}) ${start}% ${acc}%`;
-    })
-    .join(", ");
+  const stops = CATEGORIES.map((c) => {
+    const v = sentiment[c.pctKey] || 0;
+    const start = acc;
+    acc += v;
+    return `rgb(${c.color}) ${start}% ${acc}%`;
+  }).join(", ");
+
+  const toggle = (id) => setFilter((cur) => (cur === id ? "all" : id));
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-4">
@@ -48,16 +64,30 @@ export default function SentimentPanel({ sentiment }) {
             <span className="text-[10px] font-medium text-muted">positive</span>
           </div>
         </div>
-        <div className="min-w-0 flex-1 space-y-1.5">
-          {donut.map((d) => (
-            <div key={d.label} className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: `rgb(${d.color})` }} />
-                {d.label}
-              </span>
-              <span className="num font-semibold">{fmtPct(d.value)}</span>
-            </div>
-          ))}
+
+        {/* Clickable category filters */}
+        <div className="min-w-0 flex-1 space-y-1">
+          {CATEGORIES.map((c) => {
+            const active = filter === c.id;
+            return (
+              <button
+                key={c.id}
+                onClick={() => toggle(c.id)}
+                title={active ? "Show all comments" : `Show only ${c.label.toLowerCase()} comments`}
+                className={clsx(
+                  "flex w-full items-center justify-between rounded-lg border px-2 py-1 text-sm transition-colors",
+                  active ? "border-primary/40 bg-primary/5" : "border-transparent hover:bg-raised"
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: `rgb(${c.color})` }} />
+                  {c.label}
+                  <span className="text-xs text-muted">({counts[c.id]})</span>
+                </span>
+                <span className="num font-semibold">{fmtPct(sentiment[c.pctKey])}</span>
+              </button>
+            );
+          })}
           <div className="border-t border-line pt-1.5 text-xs text-muted">
             {fmtCompact(sentiment.comments_analyzed)} comments analyzed · avg score{" "}
             <span className="num font-semibold text-fg">{sentiment.avg_compound?.toFixed(2)}</span>
@@ -73,29 +103,48 @@ export default function SentimentPanel({ sentiment }) {
       />
 
       <div>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Top comments</h4>
+        <div className="mb-2 flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">
+            {filter === "all" ? "All comments" : `${filter} comments`} ({filtered.length})
+          </h4>
+          {filter !== "all" && (
+            <button
+              onClick={() => setFilter("all")}
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              Show all
+            </button>
+          )}
+        </div>
+
         <div className="space-y-2">
-          {(sentiment.sample_comments || []).map((c, i) => (
-            <div key={i} className="rounded-xl border border-line bg-raised p-3">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="truncate text-xs font-semibold">{c.author || "Anonymous"}</span>
-                <span
-                  className={clsx(
-                    "chip shrink-0 border capitalize",
-                    LABEL_STYLES[c.label] || LABEL_STYLES.neutral
-                  )}
-                >
-                  {c.label}
-                </span>
-              </div>
-              <p className="text-[13px] leading-relaxed text-fg/90">{c.text}</p>
-              {c.like_count > 0 && (
-                <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted">
-                  <ThumbsUp size={11} /> <span className="num">{fmtCompact(c.like_count)}</span>
-                </div>
-              )}
+          {filtered.length === 0 ? (
+            <div className="rounded-xl border border-line bg-raised p-4 text-center text-sm text-muted">
+              No {filter} comments in the captured set.
             </div>
-          ))}
+          ) : (
+            filtered.map((c, i) => (
+              <div key={i} className="rounded-xl border border-line bg-raised p-3">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="truncate text-xs font-semibold">{c.author || "Anonymous"}</span>
+                  <span
+                    className={clsx(
+                      "chip shrink-0 border capitalize",
+                      LABEL_STYLES[c.label] || LABEL_STYLES.neutral
+                    )}
+                  >
+                    {c.label}
+                  </span>
+                </div>
+                <p className="text-[13px] leading-relaxed text-fg/90">{c.text}</p>
+                {c.like_count > 0 && (
+                  <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted">
+                    <ThumbsUp size={11} /> <span className="num">{fmtCompact(c.like_count)}</span>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

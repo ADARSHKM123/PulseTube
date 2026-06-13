@@ -9,7 +9,9 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 # Standard VADER convention: |compound| < 0.05 is neutral.
 POSITIVE_THRESHOLD = 0.05
 NEGATIVE_THRESHOLD = -0.05
-SAMPLE_SIZE = 8
+# Persist every analyzed comment (most-liked first) so the dashboard can show
+# and filter the full set by sentiment — capped only to bound the stored JSON.
+STORED_COMMENTS_MAX = 200
 MAX_COMMENT_CHARS = 500
 
 _analyzer = SentimentIntensityAnalyzer()
@@ -44,9 +46,10 @@ def analyze_comments(comments: list[dict]) -> dict | None:
         scored.append({**c, "compound": round(compound, 4), "label": label})
 
     total = len(scored)
-    # Most-liked comments are what a human would read first — surface those.
-    sample = sorted(scored, key=lambda c: c.get("like_count", 0), reverse=True)[:SAMPLE_SIZE]
-    for c in sample:
+    # Keep all analyzed comments, most-liked first (natural reading order), so
+    # the UI can list and filter every one — not just a handful.
+    stored = sorted(scored, key=lambda c: c.get("like_count", 0), reverse=True)[:STORED_COMMENTS_MAX]
+    for c in stored:
         c["text"] = c["text"][:MAX_COMMENT_CHARS]
 
     return {
@@ -55,5 +58,5 @@ def analyze_comments(comments: list[dict]) -> dict | None:
         "negative_pct": round(counts["negative"] / total * 100, 1),
         "neutral_pct": round(counts["neutral"] / total * 100, 1),
         "avg_compound": round(compound_sum / total, 4),
-        "sample_comments": sample,
+        "sample_comments": stored,
     }
